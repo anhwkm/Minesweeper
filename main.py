@@ -172,11 +172,10 @@ class GameBoard:
             return "Flagged:", x, y
         else:
             # if mines are mislabeled, chording can hit a mine
-            safe = self.chord_tile(x, y)
-            if safe:
-                return "Chorded:", x, y
-            else:
+            if self.chord_tile(x, y) == "M":
                 return "M"
+            else:
+                return "Chorded:", x, y
 
     def chord_tile(self, x, y):
         if self.revealed[y][x] and self.grid[y][x] > 0:
@@ -290,33 +289,33 @@ class GameRenderer:
         self.screen.blit(text, text.get_rect(center=rect.center))
         pygame.display.flip()
     
-    def outline_chunks(self):
-        width = 3
-        for chunk in self.board.identify_chunks():
-            cell_set = set(chunk)
+    # def outline_chunks(self):
+    #     width = 3
+    #     for chunk in self.board.identify_chunks():
+    #         cell_set = set(chunk)
             
-            for x, y in chunk:
-                # Pixel coords of the cell
-                px = x * TILE_SIZE
-                py = y * TILE_SIZE
-                rect = pygame.Rect(px, py, TILE_SIZE, TILE_SIZE)
+    #         for x, y in chunk:
+    #             # Pixel coords of the cell
+    #             px = x * TILE_SIZE
+    #             py = y * TILE_SIZE
+    #             rect = pygame.Rect(px, py, TILE_SIZE, TILE_SIZE)
 
-                # Check neighbors; if neighbor missing, draw that edge
-                neighbors = {
-                    "top":    (x, y-1) not in cell_set,
-                    "bottom": (x, y+1) not in cell_set,
-                    "left":   (x-1, y) not in cell_set,
-                    "right":  (x+1, y) not in cell_set
-                }
+    #             # Check neighbors; if neighbor missing, draw that edge
+    #             neighbors = {
+    #                 "top":    (x, y-1) not in cell_set,
+    #                 "bottom": (x, y+1) not in cell_set,
+    #                 "left":   (x-1, y) not in cell_set,
+    #                 "right":  (x+1, y) not in cell_set
+    #             }
 
-                if neighbors["top"]:
-                    pygame.draw.line(self.screen, colors[3], (px, py), (px + TILE_SIZE, py), width)
-                if neighbors["bottom"]:
-                    pygame.draw.line(self.screen, colors[3], (px, py + TILE_SIZE), (px + TILE_SIZE, py + TILE_SIZE), width)
-                if neighbors["left"]:
-                    pygame.draw.line(self.screen, colors[3], (px, py), (px, py + TILE_SIZE), width)
-                if neighbors["right"]:
-                    pygame.draw.line(self.screen, colors[3], (px + TILE_SIZE, py), (px + TILE_SIZE, py + TILE_SIZE), width)
+    #             if neighbors["top"]:
+    #                 pygame.draw.line(self.screen, colors[3], (px, py), (px + TILE_SIZE, py), width)
+    #             if neighbors["bottom"]:
+    #                 pygame.draw.line(self.screen, colors[3], (px, py + TILE_SIZE), (px + TILE_SIZE, py + TILE_SIZE), width)
+    #             if neighbors["left"]:
+    #                 pygame.draw.line(self.screen, colors[3], (px, py), (px, py + TILE_SIZE), width)
+    #             if neighbors["right"]:
+    #                 pygame.draw.line(self.screen, colors[3], (px + TILE_SIZE, py), (px + TILE_SIZE, py + TILE_SIZE), width)
 
 
 # ------------------------
@@ -351,14 +350,14 @@ def main():
                     board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
                     renderer.board = board
                     GAME_OVER = False
-                elif y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                elif not GAME_OVER and y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
                     board.enact_gravity()
-                elif y >= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                elif not GAME_OVER and y >= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
                     board.blast()
                 else:
                     print("Clicked outside grid")
                     
-            elif event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN and not GAME_OVER:
                 if event.key == pygame.K_SPACE:
                     x, y = pygame.mouse.get_pos()
                     grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
