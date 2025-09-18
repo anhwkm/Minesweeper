@@ -13,6 +13,8 @@ class GameBoard:
         self.grid = self._generate_initial_board()
         self.revealed = [[False]*width for _ in range(height)]
         self.flagged = [[False]*width for _ in range(height)]
+        self.first_click = True
+        self.game_over = False
 
 
     def _generate_initial_board(self):#initial_mines
@@ -40,21 +42,12 @@ class GameBoard:
                 board[y][x] = count
         return board
 
-    # def _generate_row(self):
-    #     row = 
-    #     mine_positions = random.sample(range(self.width), self.mines_per_row)
-    #     for pos in mine_positions:
-    #         row[pos] = "M"
-    #     return row
 
-    # def scroll_board(self):
-    #     # Remove top row, add new one at bottom
-    #     self.grid.pop(0)
-    #     self.grid.append(self._generate_row())
 
     def blast(self):
         for y, row in enumerate(self.flagged):
-            if not any(row):  # if whole row is flagged
+            print(y, row)
+            if all(row):  # if whole row is flagged
                 if all(cell == "M" for cell in row): # if whole row is mines
                     self.grid[y] = [0] * self.width
                     self.grid = self.calculate_board(self.grid)
@@ -153,6 +146,11 @@ class GameBoard:
         return chunks
 
     def reveal_tile(self, x, y):
+        if self.first_click:
+            while self.grid[y][x] != 0:
+                self.grid = self._generate_initial_board()
+        if self.revealed[y][x] or self.flagged[y][x]:
+            return True  # No action if already revealed or flagged`
         queue = [(x, y)]
         while queue:
             x, y = queue.pop(0)
@@ -162,8 +160,14 @@ class GameBoard:
             if self.grid[y][x] == 0:
                 for nx, ny in self.adjacent_mines(x, y):
                     queue.append((nx, ny))
+            elif self.grid[y][x] == "M":
+                self.game_over = True
+                return "M"
         # if self.gravity:
         #     self.enact_gravity()
+
+        self.first_click = False
+
         return self.grid[y][x]
     
     def space_bar_tile(self, x, y):
@@ -185,6 +189,7 @@ class GameBoard:
                     if not self.revealed[ny][nx] and not self.flagged[ny][nx]:
                         result = self.reveal_tile(nx, ny)
                         if result == "M":
+                            self.game_over = True
                             return "M"
         return True
                         
@@ -271,12 +276,6 @@ class GameRenderer:
                     pygame.draw.rect(self.screen, colors['hidden'], rect.inflate(-2, -2))
         if self.show_outlines:
             self.outline_chunks()
-        
-        # Draw restart button
-        rect = pygame.Rect(0, self.board.height * TILE_SIZE, self.board.width * TILE_SIZE, Y_RESTART)
-        pygame.draw.rect(self.screen, colors["restart"], rect.inflate(-2, -2))
-        text = self.font.render("RESTART", True, (0, 0, 0))
-        self.screen.blit(text, text.get_rect(center=rect.center))
         # Draw gravity button
         rect = pygame.Rect(0, self.board.height * TILE_SIZE + Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
         pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
@@ -286,6 +285,19 @@ class GameRenderer:
         rect = pygame.Rect(0, self.board.height * TILE_SIZE + 2 * Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
         pygame.draw.rect(self.screen, colors[3], rect.inflate(-2, -2))
         text = self.font.render("BLAST", True, (0, 0, 0))
+        self.screen.blit(text, text.get_rect(center=rect.center))
+
+        if self.board.game_over:
+            overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))  # Semi-transparent black
+            self.screen.blit(overlay, (0, 0))
+            text = self.font.render("GAME OVER", True, (255, 0, 0))
+            self.screen.blit(text, text.get_rect(center=self.screen.get_rect().center))
+
+        # Draw restart button
+        rect = pygame.Rect(0, self.board.height * TILE_SIZE, self.board.width * TILE_SIZE, Y_RESTART)
+        pygame.draw.rect(self.screen, colors["restart"], rect.inflate(-2, -2))
+        text = self.font.render("RESTART", True, (0, 0, 0))
         self.screen.blit(text, text.get_rect(center=rect.center))
         pygame.display.flip()
     
@@ -333,7 +345,7 @@ def main():
     renderer = GameRenderer(screen, board)
 
     clock = pygame.time.Clock()
-    GAME_OVER = False
+    # game_over = False
 
     while True:
         for event in pygame.event.get():
@@ -341,33 +353,38 @@ def main():
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos
-                if y <= N_TILES_Y * TILE_SIZE and not GAME_OVER:
+                if y <= N_TILES_Y * TILE_SIZE and not board.game_over:
+                    print('CLICK', x, y)
                     grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
-                    if board.reveal_tile(grid_x, grid_y) == "M":
-                        print("Game Over!")
-                        GAME_OVER = True
+                    board.reveal_tile(grid_x, grid_y)
+                    # if board.reveal_tile(grid_x, grid_y) == "M":
+                    #     print("Game Over!")
+                    #     game_over = True
                 elif y >= N_TILES_Y * TILE_SIZE and y <= N_TILES_Y * TILE_SIZE + Y_RESTART:
+                    print('RESTART')
                     board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
                     renderer.board = board
-                    GAME_OVER = False
-                elif not GAME_OVER and y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                    # game_over = False
+                elif not board.game_over and y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                    print('GRAVITY')
                     board.enact_gravity()
-                elif not GAME_OVER and y >= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                elif not board.game_over and y >= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
+                    print('BLAST')
                     board.blast()
                 else:
                     print("Clicked outside grid")
                     
-            elif event.type == pygame.KEYDOWN and not GAME_OVER:
+            elif event.type == pygame.KEYDOWN and not board.game_over:
                 if event.key == pygame.K_SPACE:
                     x, y = pygame.mouse.get_pos()
                     grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
                     if grid_y <= N_TILES_Y:
                         text = board.space_bar_tile(grid_x, grid_y)
-                        if text == "M":
-                            print("Game Over!")
-                            GAME_OVER = True
-                        else:
-                            print(text)
+                        # if text == "M":
+                        #     print("Game Over!")
+                        #     game_over = True
+                        # else:
+                        #     print(text)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_o:
                         renderer.show_outlines = not renderer.show_outlines
