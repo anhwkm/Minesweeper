@@ -16,6 +16,10 @@ class GameBoard:
         self.first_click = True
         self.game_over = False
 
+        # self.revealed = [[True]*width for _ in range(height)]
+        # self.revealed = 
+        # self.grid = 
+
 
     def _generate_initial_board(self):#initial_mines
         # Fill the board row by row
@@ -45,60 +49,73 @@ class GameBoard:
 
 
     def blast(self):
-        for y, row in enumerate(self.flagged):
-            print(y, row)
-            if all(row):  # if whole row is flagged
-                if all(cell == "M" for cell in row): # if whole row is mines
+        for y in range(self.height):
+            print(y, self.grid[y])
+            if all(self.flagged[y]):  # if whole row is flagged
+                self.revealed[y] = [True]*self.width
+                self.flagged[y] = [False]*self.width
+                if all(cell == "M" for cell in self.grid[y]): # if whole row is mines
                     self.grid[y] = [0] * self.width
-                    self.grid = self.calculate_board(self.grid)
-                    self.revealed[y] = [True]*self.width
-                    self.flagged[y] = [False]*self.width
+                else:
+                    self.game_over = True
+                self.grid = self.calculate_board(self.grid)
 
+    def print_grid(self):
+        print("\nCurrent Grid:")
+        for y, row in enumerate(self.grid):
+            row_str = ""
+            for x, cell in enumerate(row):
+                if self.revealed[y][x]:
+                    if self.flagged[y][x]:
+                        row_str += "F"  # flagged
+                    else:
+                        row_str += str(cell)  # show actual value
+                else:
+                    row_str += "#"  # unrevealed
+            print(row_str)
+        print("-" * self.width)
 
 
 
     def enact_gravity(self):
-        chunks = self.identify_chunks()
+        top_chunk, chunks = self.identify_chunks()
         moved = True
-        while moved:
+        while moved: # keep going until no chunks can fall
             moved = False
             for chunk in chunks:
-                if self.fall_chunk(chunk):
+                if self.can_fall(chunk):
+                    print("fall")
+                    self.fall_chunk(chunk)
                     moved = True
-                if all(self.revealed[0]):
-                    self.encroach()
+                # if top chunk can fall, it does, and a new row is added
+            if top_chunk:
+                if self.can_fall(top_chunk):
+                    print("top fall")
+                    self.fall_chunk(top_chunk)
+                    top_chunk = self.encroach(top_chunk)
+                    print(top_chunk)
+                    moved = True
+                else:
+                    print("top can't fall")
+                    print(top_chunk)
+                    self.print_grid()
+            elif all(self.revealed[0]):
+                print("new top")
+                top_chunk = self.encroach()
+                print(top_chunk)
+                moved = True
+            else:
+                print("no top fall")
         self.grid = self.calculate_board(self.grid)
-
-    def fall_chunk(self, chunk):
-        # Move all cells in chunk down by 1
-        if self.can_fall(chunk):
-            for x, y in sorted(chunk, key=lambda c: -c[1]):  # Sort by y descending
-                if self.revealed[y][x]:
-                    print("Error: trying to move revealed cell")
-                if not self.revealed[y + 1][x]:
-                    print("Error: trying to move into non-revealed cell")
-                self.grid[y + 1][x] = self.grid[y][x]
-                self.revealed[y + 1][x] = self.revealed[y][x]
-                self.flagged[y + 1][x] = self.flagged[y][x]
-                self.grid[y][x] = 0
-                self.revealed[y][x] = True
-                self.flagged[y][x] = False
-                chunk.remove((x, y))
-                chunk.add((x, y + 1))
-            #if anything is in row 1 now, it was in row 0, so this chunk is connected to new rows
-            if any(y == 1 for x, y in chunk): 
-                self.encroach()
-                for x in range(self.width):
-                    chunk.add((x, 0))
-            return True
-        return False
-            
-
-    def encroach(self):
+    
+    def encroach(self, top_chunk=None):
+        if top_chunk is None:
+            top_chunk = set()
+        print(top_chunk)
         # check if row 0 is entirely revealed:
         if not all(self.revealed[0]):
             print("CATASTROPHE")
-            return
+            raise ValueError("Trying to encroach when top row not fully revealed")
         new_row = [0] * self.width
         n_mines = self.initial_mines // self.height
         n_mines = random.randint(max(0, n_mines - 2), min(self.width, n_mines + 2))
@@ -106,9 +123,68 @@ class GameBoard:
         for x in mine_positions:
             new_row[x] = "M"
         self.grid[0] = new_row
-        self.grid = self.calculate_board(self.grid)
         self.revealed[0] = [False]*self.width
         self.flagged[0] = [False]*self.width
+        # self.grid = self.calculate_board(self.grid)
+
+        # if any chunk touches the top row, add this row to it
+        # previous steps made sure only one chunk can touch top row
+        # top_chunks = [c for c in chunks if any(y == 1 for x, y in c)]
+        # if len(top_chunks) > 1: print("CATASTROPHE 2")
+        kerchunk = set([(x, 0) for x in range(self.width)])
+        print(self.width, self.height)
+        print(kerchunk)
+        # for c in top_chunks:
+        #         kerchunk.update(c)
+        #         chunks.remove(c)
+        top_chunk.update(kerchunk)
+        print(top_chunk)
+        return top_chunk
+
+    def cheat(self):
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.grid[y][x] != "M":
+                    self.revealed[y][x] = True
+                else:
+                    self.flagged[y][x] = True
+        self.grid = self.calculate_board(self.grid)
+
+    def fall_chunk(self, chunk):
+        # input("Press Enter to step...")
+        # self.print_grid()
+        new_chunk = set()
+        # Move all cells in chunk down by 1
+        for x, y in sorted(chunk, key=lambda c: -c[1]):  # Sort by y descending
+            if self.revealed[y][x]:
+                print("Error: trying to move revealed cell", x, y)
+                print(self.revealed)
+                print(self.grid)
+                print(chunk)
+                raise ValueError("Trying to move revealed cell")
+            if not self.revealed[y + 1][x]:
+                print("Error: trying to move into non-revealed cell", x, y)
+                print(self.revealed)
+                print(self.grid)
+                print(chunk)
+            self.grid[y + 1][x] = self.grid[y][x]
+            self.revealed[y + 1][x] = self.revealed[y][x]
+            self.flagged[y + 1][x] = self.flagged[y][x]
+            self.grid[y][x] = 0
+            self.revealed[y][x] = True
+            self.flagged[y][x] = False
+            # chunk.remove((x, y))
+            new_chunk.add((x, y + 1))
+        chunk.clear()
+        chunk.update(new_chunk)
+        # #if anything is in row 1 now, it was in row 0, so this chunk is connected to new rows
+        # if any(y == 1 for x, y in chunk): 
+        #     self.encroach()
+        #     for x in range(self.width):
+        #         chunk.add((x, 0))
+            
+
+    
 
     def can_fall(self, chunk):
         for x, y in chunk:
@@ -120,11 +196,19 @@ class GameBoard:
         return True
 
     def identify_chunks(self):
-        visited = [[False]*self.width for _ in range(self.height)]
-        chunks = []
+        # shallow copy, mark revealed as visited
+        visited = [row[:] for row in self.revealed]
+        flagged_chunks = []
         for y in range(self.height):
             for x in range(self.width):
-                if not self.revealed[y][x] and not visited[y][x]:
+                if self.flagged[y][x]:
+                    flagged_chunks.append(set([(x, y)]))
+                    visited[y][x] = True  # treat empty as visited
+
+        chunks = []    
+        for y in range(self.height):
+            for x in range(self.width):
+                if not visited[y][x]:
                     chunk = set()
                     stack = [(x, y)]
                     while stack:
@@ -136,14 +220,15 @@ class GameBoard:
                                 stack.append((nx, ny))
                     chunks.append(chunk)
         # any chunks touching top row are connected to each other
+        top_chunk = set()
         top_chunks = [c for c in chunks if any(y == 0 for x, y in c)]
         if top_chunks:
-            combined = set()
             for c in top_chunks:
-                combined.update(c)
+                top_chunk.update(c)
                 chunks.remove(c)
-            chunks.append(combined)
-        return chunks
+        chunks.extend(flagged_chunks)
+        print(f"Identified {len(chunks)} chunks, top chunk size {len(top_chunk)}")
+        return top_chunk, chunks
 
     def reveal_tile(self, x, y):
         if self.first_click:
@@ -304,7 +389,7 @@ class GameRenderer:
     # def outline_chunks(self):
     #     width = 3
     #     for chunk in self.board.identify_chunks():
-    #         cell_set = set(chunk)
+    #         cell_set = chunk.copy()
             
     #         for x, y in chunk:
     #             # Pixel coords of the cell
@@ -362,7 +447,8 @@ def main():
                     #     game_over = True
                 elif y >= N_TILES_Y * TILE_SIZE and y <= N_TILES_Y * TILE_SIZE + Y_RESTART:
                     print('RESTART')
-                    board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
+                    board.cheat()  # For testing, reveal all
+                    # board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
                     renderer.board = board
                     # game_over = False
                 elif not board.game_over and y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
