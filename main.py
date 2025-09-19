@@ -49,16 +49,19 @@ class GameBoard:
 
 
     def blast(self):
-        for y in range(self.height):
-            print(y, self.grid[y])
-            if all(self.flagged[y]):  # if whole row is flagged
-                self.revealed[y] = [True]*self.width
-                self.flagged[y] = [False]*self.width
-                if all(cell == "M" for cell in self.grid[y]): # if whole row is mines
-                    self.grid[y] = [0] * self.width
-                else:
-                    self.game_over = True
-                self.grid = self.calculate_board(self.grid)
+        grid_T = list(zip(*self.flagged))
+        to_blast_x = [x for x in range(self.width) if all(grid_T[x])]
+        to_blast_y = [y for y in range(self.height) if all(self.flagged[y])]
+        for x in range(self.width):
+            for y in range(self.height):
+                if x in to_blast_x or y in to_blast_y:
+                    self.revealed[y][x] = True
+                    self.flagged[y][x] = False
+                    if self.grid[y][x] == "M":
+                        self.grid[y][x] = "0"
+                    else:
+                        self.game_over = True
+            self.grid = self.calculate_board(self.grid)
 
     def print_grid(self):
         print("\nCurrent Grid:")
@@ -341,7 +344,7 @@ class GameRenderer:
         self.screen = screen
         self.board = board
         self.font = pygame.font.SysFont(None, 24)
-        self.show_outlines = False
+        # self.show_outlines = False
 
     def draw(self):
         self.screen.fill((0, 0, 0))
@@ -359,8 +362,8 @@ class GameRenderer:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect.inflate(-2, -2))  # Red for flagged
                 else:
                     pygame.draw.rect(self.screen, colors['hidden'], rect.inflate(-2, -2))
-        if self.show_outlines:
-            self.outline_chunks()
+        # if self.show_outlines:
+        #     self.outline_chunks()
         # Draw gravity button
         rect = pygame.Rect(0, self.board.height * TILE_SIZE + Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
         pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
@@ -471,9 +474,9 @@ def main():
                         #     game_over = True
                         # else:
                         #     print(text)
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_o:
-                        renderer.show_outlines = not renderer.show_outlines
+                # elif event.type == pygame.KEYDOWN:
+                #     if event.key == pygame.K_o:
+                #         renderer.show_outlines = not renderer.show_outlines
 
 
         renderer.draw()
