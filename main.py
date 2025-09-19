@@ -15,6 +15,7 @@ class GameBoard:
         self.flagged = [[False]*width for _ in range(height)]
         self.first_click = True
         self.game_over = False
+        self.score = 0
 
         # self.revealed = [[True]*width for _ in range(height)]
         # self.revealed = 
@@ -34,6 +35,9 @@ class GameBoard:
         self.calculate_board(board)
         return board
     
+    def get_score(self):
+        return self.score
+
     def calculate_board(self, board):
         for y in range(self.height):
             for x in range(self.width):
@@ -61,7 +65,8 @@ class GameBoard:
                         self.grid[y][x] = "0"
                     else:
                         self.game_over = True
-            self.grid = self.calculate_board(self.grid)
+        self.score += self.height * len(to_blast_x) + self.width * len(to_blast_y)
+        self.grid = self.calculate_board(self.grid)
 
     def print_grid(self):
         print("\nCurrent Grid:")
@@ -321,6 +326,7 @@ class GameBoard:
 
 TILE_SIZE = 32
 Y_RESTART = 50
+SCORE_Y_OFFSET = 10
 
 
 colors = {
@@ -350,7 +356,7 @@ class GameRenderer:
         self.screen.fill((0, 0, 0))
         for y, row in enumerate(self.board.grid):
             for x, cell in enumerate(row):
-                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE + SCORE_Y_OFFSET, TILE_SIZE, TILE_SIZE)
                 pygame.draw.rect(self.screen, colors['border'], rect, 1)
                 if self.board.revealed[y][x]:
                     pygame.draw.rect(self.screen, colors["revealed"], rect.inflate(-2, -2))
@@ -364,6 +370,12 @@ class GameRenderer:
                     pygame.draw.rect(self.screen, colors['hidden'], rect.inflate(-2, -2))
         # if self.show_outlines:
         #     self.outline_chunks()
+
+        # Draw score
+        rect = pygame.Rect(0, 0, self.board.width * TILE_SIZE, SCORE_Y_OFFSET)
+        pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
+        text = self.font.render(f"SCORE: {self.board.get_score()}", True, (0, 0, 0))
+        self.screen.blit(text, text.get_rect(center=rect.center))
         # Draw gravity button
         rect = pygame.Rect(0, self.board.height * TILE_SIZE + Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
         pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
@@ -422,6 +434,7 @@ class GameRenderer:
 # Main Loop
 # ------------------------
 
+
 N_TILES_X = 10
 N_TILES_Y = 15
 N_MINES = 20
@@ -441,7 +454,10 @@ def main():
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos
-                if y <= N_TILES_Y * TILE_SIZE and not board.game_over:
+                y -= SCORE_Y_OFFSET
+                if y < 0:
+                    continue  # Ignore clicks in score area
+                elif y <= N_TILES_Y * TILE_SIZE and not board.game_over:
                     print('CLICK', x, y)
                     grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
                     board.reveal_tile(grid_x, grid_y)
