@@ -17,10 +17,6 @@ class GameBoard:
         self.game_over = False
         self.score = 0
 
-        # self.revealed = [[True]*width for _ in range(height)]
-        # self.revealed = 
-        # self.grid = 
-
 
     def _generate_initial_board(self):#initial_mines
         # Fill the board row by row
@@ -181,15 +177,9 @@ class GameBoard:
             self.grid[y][x] = 0
             self.revealed[y][x] = True
             self.flagged[y][x] = False
-            # chunk.remove((x, y))
             new_chunk.add((x, y + 1))
         chunk.clear()
         chunk.update(new_chunk)
-        # #if anything is in row 1 now, it was in row 0, so this chunk is connected to new rows
-        # if any(y == 1 for x, y in chunk): 
-        #     self.encroach()
-        #     for x in range(self.width):
-        #         chunk.add((x, 0))
             
 
     
@@ -324,13 +314,13 @@ class GameBoard:
 # Rendering Layer (Pygame)
 # ------------------------
 
-TILE_SIZE = 32
-Y_RESTART = 50
-SCORE_Y_OFFSET = 10
+
 
 
 colors = {
-    'restart': (200, 200, 0), # yellow for restart button
+    'GRAVITY': (0, 128, 0), # green for gravity button
+    'BLAST': (255, 0, 0), # red for blast button
+    'RESTART': (200, 200, 0), # yellow for restart button
     'M': (0, 0, 0),    # black for mines
     1: (0, 0, 255),    # blue
     2: (0, 128, 0),    # green
@@ -350,13 +340,22 @@ class GameRenderer:
         self.screen = screen
         self.board = board
         self.font = pygame.font.SysFont(None, 24)
+        self.font_small = pygame.font.SysFont(None, 18)
         # self.show_outlines = False
+
+    def draw_button(self, text, starting_y, height, font, color=None, font_color=(0, 0, 0)):
+        if color is None:
+            color = colors[text]
+        rect = pygame.Rect(0, starting_y, self.board.width * TILE_SIZE, height)
+        pygame.draw.rect(self.screen, color, rect.inflate(-2, -2))
+        text = font.render(text, True, (255, 255, 255))
+        self.screen.blit(text, text.get_rect(center=rect.center))
 
     def draw(self):
         self.screen.fill((0, 0, 0))
         for y, row in enumerate(self.board.grid):
             for x, cell in enumerate(row):
-                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE + SCORE_Y_OFFSET, TILE_SIZE, TILE_SIZE)
+                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE + SCORE_HEIGHT, TILE_SIZE, TILE_SIZE)
                 pygame.draw.rect(self.screen, colors['border'], rect, 1)
                 if self.board.revealed[y][x]:
                     pygame.draw.rect(self.screen, colors["revealed"], rect.inflate(-2, -2))
@@ -368,24 +367,6 @@ class GameRenderer:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect.inflate(-2, -2))  # Red for flagged
                 else:
                     pygame.draw.rect(self.screen, colors['hidden'], rect.inflate(-2, -2))
-        # if self.show_outlines:
-        #     self.outline_chunks()
-
-        # Draw score
-        rect = pygame.Rect(0, 0, self.board.width * TILE_SIZE, SCORE_Y_OFFSET)
-        pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
-        text = self.font.render(f"SCORE: {self.board.get_score()}", True, (0, 0, 0))
-        self.screen.blit(text, text.get_rect(center=rect.center))
-        # Draw gravity button
-        rect = pygame.Rect(0, self.board.height * TILE_SIZE + Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
-        pygame.draw.rect(self.screen, colors[2], rect.inflate(-2, -2))
-        text = self.font.render("GRAVITY", True, (0, 0, 0))
-        self.screen.blit(text, text.get_rect(center=rect.center))
-        # Draw encroach button
-        rect = pygame.Rect(0, self.board.height * TILE_SIZE + 2 * Y_RESTART, self.board.width * TILE_SIZE, Y_RESTART)
-        pygame.draw.rect(self.screen, colors[3], rect.inflate(-2, -2))
-        text = self.font.render("BLAST", True, (0, 0, 0))
-        self.screen.blit(text, text.get_rect(center=rect.center))
 
         if self.board.game_over:
             overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
@@ -394,111 +375,78 @@ class GameRenderer:
             text = self.font.render("GAME OVER", True, (255, 0, 0))
             self.screen.blit(text, text.get_rect(center=self.screen.get_rect().center))
 
-        # Draw restart button
-        rect = pygame.Rect(0, self.board.height * TILE_SIZE, self.board.width * TILE_SIZE, Y_RESTART)
-        pygame.draw.rect(self.screen, colors["restart"], rect.inflate(-2, -2))
-        text = self.font.render("RESTART", True, (0, 0, 0))
-        self.screen.blit(text, text.get_rect(center=rect.center))
+        self.draw_button(f"SCORE: {self.board.get_score()}", 0, SCORE_HEIGHT, self.font_small, (0, 0, 0), (255, 255, 255))
+        self.draw_button("GRAVITY", SCORE_HEIGHT + GRID_HEIGHT, BUTTON_HEIGHT, self.font)
+        self.draw_button("BLAST", SCORE_HEIGHT + GRID_HEIGHT + BUTTON_HEIGHT, BUTTON_HEIGHT, self.font)
+        self.draw_button("RESTART", SCORE_HEIGHT + GRID_HEIGHT + 2 * BUTTON_HEIGHT, BUTTON_HEIGHT, self.font)
         pygame.display.flip()
-    
-    # def outline_chunks(self):
-    #     width = 3
-    #     for chunk in self.board.identify_chunks():
-    #         cell_set = chunk.copy()
-            
-    #         for x, y in chunk:
-    #             # Pixel coords of the cell
-    #             px = x * TILE_SIZE
-    #             py = y * TILE_SIZE
-    #             rect = pygame.Rect(px, py, TILE_SIZE, TILE_SIZE)
 
-    #             # Check neighbors; if neighbor missing, draw that edge
-    #             neighbors = {
-    #                 "top":    (x, y-1) not in cell_set,
-    #                 "bottom": (x, y+1) not in cell_set,
-    #                 "left":   (x-1, y) not in cell_set,
-    #                 "right":  (x+1, y) not in cell_set
-    #             }
 
-    #             if neighbors["top"]:
-    #                 pygame.draw.line(self.screen, colors[3], (px, py), (px + TILE_SIZE, py), width)
-    #             if neighbors["bottom"]:
-    #                 pygame.draw.line(self.screen, colors[3], (px, py + TILE_SIZE), (px + TILE_SIZE, py + TILE_SIZE), width)
-    #             if neighbors["left"]:
-    #                 pygame.draw.line(self.screen, colors[3], (px, py), (px, py + TILE_SIZE), width)
-    #             if neighbors["right"]:
-    #                 pygame.draw.line(self.screen, colors[3], (px + TILE_SIZE, py), (px + TILE_SIZE, py + TILE_SIZE), width)
+
+
+
+
+
+
+
 
 
 # ------------------------
 # Main Loop
 # ------------------------
 
+TILE_SIZE = 30
+BUTTON_HEIGHT = 60
+SCORE_HEIGHT = 30
 
 N_TILES_X = 10
 N_TILES_Y = 15
 N_MINES = 20
+GRID_HEIGHT = N_TILES_Y * TILE_SIZE
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((N_TILES_X * TILE_SIZE, N_TILES_Y * TILE_SIZE + 3 * Y_RESTART))
+    screen = pygame.display.set_mode((N_TILES_X * TILE_SIZE, GRID_HEIGHT + (3 * BUTTON_HEIGHT) + SCORE_HEIGHT))
     board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
     renderer = GameRenderer(screen, board)
 
     clock = pygame.time.Clock()
-    # game_over = False
+
+    def pixel_to_grid(x, y):
+        grid_x = x // TILE_SIZE
+        grid_y = (y - SCORE_HEIGHT) // TILE_SIZE
+        return grid_x, grid_y
+    
 
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos
-                y -= SCORE_Y_OFFSET
-                if y < 0:
-                    continue  # Ignore clicks in score area
-                elif y <= N_TILES_Y * TILE_SIZE and not board.game_over:
-                    print('CLICK', x, y)
-                    grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
-                    board.reveal_tile(grid_x, grid_y)
-                    # if board.reveal_tile(grid_x, grid_y) == "M":
-                    #     print("Game Over!")
-                    #     game_over = True
-                elif y >= N_TILES_Y * TILE_SIZE and y <= N_TILES_Y * TILE_SIZE + Y_RESTART:
+                if not board.game_over:
+                    if (y > SCORE_HEIGHT) and (y < SCORE_HEIGHT + GRID_HEIGHT):
+                        print('CLICK', x, y)
+                        grid_x, grid_y = pixel_to_grid(x, y)
+                        board.reveal_tile(grid_x, grid_y)
+                    elif (y > SCORE_HEIGHT + GRID_HEIGHT) and (y < SCORE_HEIGHT + GRID_HEIGHT + BUTTON_HEIGHT):
+                        print('GRAVITY')
+                        board.enact_gravity()
+                    elif (y > SCORE_HEIGHT + GRID_HEIGHT + BUTTON_HEIGHT) and (y < SCORE_HEIGHT + GRID_HEIGHT + 2 * BUTTON_HEIGHT):
+                        print('BLAST')
+                        board.blast()
+                if (y > SCORE_HEIGHT + GRID_HEIGHT + 2 * BUTTON_HEIGHT):
                     print('RESTART')
-                    board.cheat()  # For testing, reveal all
-                    # board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
+                    # board.cheat()  # For testing, reveal all
+                    board = GameBoard(width=N_TILES_X, height=N_TILES_Y, initial_mines = N_MINES)
                     renderer.board = board
-                    # game_over = False
-                elif not board.game_over and y >= N_TILES_Y * TILE_SIZE + Y_RESTART and y <= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
-                    print('GRAVITY')
-                    board.enact_gravity()
-                elif not board.game_over and y >= N_TILES_Y * TILE_SIZE + 2 * Y_RESTART:
-                    print('BLAST')
-                    board.blast()
-                else:
-                    print("Clicked outside grid")
                     
             elif event.type == pygame.KEYDOWN and not board.game_over:
                 if event.key == pygame.K_SPACE:
                     x, y = pygame.mouse.get_pos()
-                    grid_x, grid_y = x // TILE_SIZE, y // TILE_SIZE
+                    grid_x, grid_y = pixel_to_grid(x, y)
                     if grid_y <= N_TILES_Y:
-                        text = board.space_bar_tile(grid_x, grid_y)
-                        # if text == "M":
-                        #     print("Game Over!")
-                        #     game_over = True
-                        # else:
-                        #     print(text)
-                # elif event.type == pygame.KEYDOWN:
-                #     if event.key == pygame.K_o:
-                #         renderer.show_outlines = not renderer.show_outlines
-
-
+                        board.space_bar_tile(grid_x, grid_y)
         renderer.draw()
         clock.tick(30)
-
-    pygame.quit()
 
 
 if __name__ == "__main__":
